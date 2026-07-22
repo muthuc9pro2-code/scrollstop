@@ -23,7 +23,7 @@ const EXIT_DURATION_MS = 260;
 const EMPTY_ERRORS = { description: "", platform: "", tone: "", language: "" };
 
 function App() {
- 
+
   const [description, setDescription] = useState("");
   const [platform, setPlatform] = useState("");
   const [tone, setTone] = useState("");
@@ -36,9 +36,10 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
 
-
+ 
   const [hasGeneratedOnce, setHasGeneratedOnce] = useState(false);
-  const [showResults, setShowResults] = useState(false);
+ 
+  const [hasFreshResults, setHasFreshResults] = useState(false);
 
 
   const previousHooksRef = useRef(null);
@@ -57,12 +58,12 @@ function App() {
   const clearFieldError = (field) =>
     setErrors((prev) => (prev[field] ? { ...prev, [field]: "" } : prev));
 
+
   const handleFieldChange = (setter, field) => (event) => {
     setter(event.target.value);
     clearFieldError(field);
-    if (hasGeneratedOnce) {
-      setShowResults(false);
-      setHooks([]);
+    if (hasFreshResults) {
+      setHasFreshResults(false);
     }
   };
 
@@ -80,7 +81,7 @@ function App() {
       setHooks(response.data.hooks);
       setResultsBatch((n) => n + 1);
       setHasGeneratedOnce(true);
-      setShowResults(true);
+      setHasFreshResults(true);
     } catch (err) {
       console.error(err);
     } finally {
@@ -92,8 +93,8 @@ function App() {
   const handleGenerate = () => {
     if (!validate()) return;
 
- 
-    if (showResults && hooks.length > 0) {
+   
+    if (hooks.length > 0) {
       setIsExiting(true);
       window.setTimeout(requestHooks, EXIT_DURATION_MS);
     } else {
@@ -129,7 +130,7 @@ function App() {
                 value={platform}
                 onChange={handleFieldChange(setPlatform, "platform")}
               >
-                <option value="">Select platform</option>
+                <option value="" disabled hidden>Select platform</option>
                 {PLATFORMS.map((p) => (
                   <option key={p}>{p}</option>
                 ))}
@@ -143,7 +144,7 @@ function App() {
                 value={tone}
                 onChange={handleFieldChange(setTone, "tone")}
               >
-                <option value="">Select tone</option>
+                <option value="" disabled hidden>Select tone</option>
                 {TONES.map((t) => (
                   <option key={t}>{t}</option>
                 ))}
@@ -174,7 +175,7 @@ function App() {
               <span className="loading" aria-label="Generating">
                 <span></span><span></span><span></span>
               </span>
-            ) : hasGeneratedOnce ? (
+            ) : hasFreshResults ? (
               "Generate again"
             ) : (
               "Generate hooks"
@@ -182,7 +183,7 @@ function App() {
           </button>
         </section>
 
-        {showResults && (
+        {hasGeneratedOnce && (
           <section className={`panel panel--results ${isExiting ? "is-exiting" : ""}`}>
             <div className="results" key={resultsBatch}>
               {hooks.map((hook, index) => (

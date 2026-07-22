@@ -1,8 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-/* ---------------------------------------------
-   Tokens
---------------------------------------------- */
+
 :root {
   --bg: #0a0a0b;
   --panel: #131316;
@@ -37,9 +35,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ---------------------------------------------
-   Shell + Layout
---------------------------------------------- */
+
 .shell {
   width: 100%;
   height: 100vh;
@@ -65,9 +61,7 @@ body {
   align-items: stretch;
 }
 
-/* ---------------------------------------------
-   Form panel
---------------------------------------------- */
+
 .panel--form {
   width: 100%;
   max-width: 560px;
@@ -106,9 +100,7 @@ body {
   font-weight: 400;
 }
 
-/* ---------------------------------------------
-   Fields
---------------------------------------------- */
+
 .field {
   width: 100%;
   margin-top: 1.1rem;
@@ -174,9 +166,7 @@ select.input {
   color: var(--error);
 }
 
-/* ---------------------------------------------
-   Button
---------------------------------------------- */
+
 .btn {
   width: 100%;
   margin-top: 1.6rem;
@@ -231,9 +221,7 @@ select.input {
   40% { transform: scale(1); opacity: 1; }
 }
 
-/* ---------------------------------------------
-   Results panel
---------------------------------------------- */
+
 .panel--results {
   flex: 1;
   max-width: 720px;
@@ -256,6 +244,9 @@ select.input {
 
 .results {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
   overflow-y: auto;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -281,14 +272,12 @@ select.input {
   opacity: 0;
   transform: translateY(10px);
   animation: hookIn 0.45s var(--ease) forwards;
-  padding-bottom: 1.25rem;
-  margin-bottom: 1.25rem;
+  padding-bottom: 1.1rem;
   border-bottom: 1px solid var(--border);
 }
 
 .hook:last-child {
   border-bottom: none;
-  margin-bottom: 0;
   padding-bottom: 0;
 }
 
@@ -311,9 +300,7 @@ select.input {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ---------------------------------------------
-   Responsive
---------------------------------------------- */
+
 @media (max-width: 900px) {
   body {
     overflow: auto;
@@ -341,9 +328,7 @@ select.input {
   }
 }
 
-/* ---------------------------------------------
-   Reduced motion
---------------------------------------------- */
+
 @media (prefers-reduced-motion: reduce) {
   .layout,
   .panel--form,
