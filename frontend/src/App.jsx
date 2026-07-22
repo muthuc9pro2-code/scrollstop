@@ -1,136 +1,206 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import axios from "axios";
+import "./index.css";
+
+const PLATFORMS = ["YouTube", "Instagram", "TikTok", "LinkedIn", "X"];
+
+const TONES = [
+  "Professional", "Sarcastic", "Funny", "Controversial", "Curiosity",
+  "Emotional", "Storytelling", "Bold", "Luxury", "Dark Humor",
+  "Shocking", "Motivational", "Educational",
+];
+
+const LANGUAGES = [
+  "English", "Tamil", "Hindi", "Telugu", "Malayalam",
+  "Kannada", "Spanish", "French", "German", "Japanese",
+];
+
+const API_URL = "http://127.0.0.1:8000/generate";
+
+
+const EXIT_DURATION_MS = 260;
+
+const EMPTY_ERRORS = { description: "", platform: "", tone: "", language: "" };
 
 function App() {
-    const [description, setDescription] = useState("");
-    const [platform, setPlatform] = useState("");
-    const [tone, setTone] = useState("");
-    const [language, setLanguage] = useState("");
-    const [hooks, setHooks] = useState([]);
-    const [generated, setGenerated] = useState(false);
-    const [isRegenerating, setIsRegenerating] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [errors, setErrors] = useState({ description: "", platform: "", tone: "", language: "" });
-    const API_URL = "http://127.0.0.1:8000/generate";
+ 
+  const [description, setDescription] = useState("");
+  const [platform, setPlatform] = useState("");
+  const [tone, setTone] = useState("");
+  const [language, setLanguage] = useState("");
+  const [errors, setErrors] = useState(EMPTY_ERRORS);
 
-    const reset = () => { setGenerated(false); setIsRegenerating(false); };
+ 
+  const [hooks, setHooks] = useState([]);
+  const [resultsBatch, setResultsBatch] = useState(0); 
+  const [loading, setLoading] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
 
-    const validate = () => {
-        const e = {};
-        if (!description.trim()) e.description = "Description is required.";
-        if (!platform) e.platform = "Please select a platform.";
-        if (!tone) e.tone = "Please select a tone.";
-        if (!language.trim()) e.language = "Please select a language.";
-        setErrors({
-            description: e.description || "",
-            platform: e.platform || "",
-            tone: e.tone || "",
-            language: e.language || ""
-        });
-        return Object.keys(e).length === 0;
+
+  const [hasGeneratedOnce, setHasGeneratedOnce] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+
+
+  const previousHooksRef = useRef(null);
+
+  const validate = () => {
+    const next = {
+      description: description.trim() ? "" : "Description is required.",
+      platform: platform ? "" : "Please select a platform.",
+      tone: tone ? "" : "Please select a tone.",
+      language: language.trim() ? "" : "Please select a language.",
     };
+    setErrors(next);
+    return Object.values(next).every((message) => !message);
+  };
 
-    const generateHooks = async () => {
-        if (!validate()) return;
-        setLoading(true);
-        try {
-            const response = await axios.post(API_URL, {
-                description, platform, tone, language,
-                previous_hooks: isRegenerating ? hooks : null
-            });
-            setHooks(response.data.hooks);
-            setGenerated(true);
-            setIsRegenerating(true);
-        } catch (err) { console.error(err); }
-        finally { setLoading(false); }
-    };
+  const clearFieldError = (field) =>
+    setErrors((prev) => (prev[field] ? { ...prev, [field]: "" } : prev));
 
-    return (
-        <div className={generated ? "app generated" : "app"}>
-            <div className="left-panel">
-                <h1>ScrollStop</h1>
-                <p className="subtitle">Generate viral hooks with AI</p>
+  const handleFieldChange = (setter, field) => (event) => {
+    setter(event.target.value);
+    clearFieldError(field);
+    if (hasGeneratedOnce) {
+      setShowResults(false);
+      setHooks([]);
+    }
+  };
 
-                <textarea placeholder="Describe your content..." value={description}
-                    onChange={(e) => {
-                        setDescription(e.target.value);
-                        setErrors({ ...errors, description: "" });
-                        reset();
-                    }} />
-                {errors.description && <p className="error">{errors.description}</p>}
+  const requestHooks = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await axios.post(API_URL, {
+        description,
+        platform,
+        tone,
+        language,
+        previous_hooks: previousHooksRef.current,
+      });
+      previousHooksRef.current = response.data.hooks;
+      setHooks(response.data.hooks);
+      setResultsBatch((n) => n + 1);
+      setHasGeneratedOnce(true);
+      setShowResults(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+      setIsExiting(false);
+    }
+  }, [description, platform, tone, language]);
 
-                <select value={platform}
-                    onChange={(e) => {
-                        setPlatform(e.target.value);
-                        setErrors({ ...errors, platform: "" });
-                        reset();
-                    }}>
-                    <option value="">Select Platform</option>
-                    <option>YouTube</option>
-                    <option>Instagram</option>
-                    <option>TikTok</option>
-                    <option>LinkedIn</option>
-                    <option>X</option>
-                </select>
-                {errors.platform && <p className="error">{errors.platform}</p>}
+  const handleGenerate = () => {
+    if (!validate()) return;
 
-                <select value={tone}
-                    onChange={(e) => { setTone(e.target.value); setErrors({ ...errors, tone: "" }); reset(); }}>
-                    <option value="">Select Tone</option>
-                    <option>Professional</option>
-                    <option>Sarcastic</option>
-                    <option>Funny</option>
-                    <option>Controversial</option>
-                    <option>Curiosity</option>
-                    <option>Emotional</option>
-                    <option>Storytelling</option>
-                    <option>Bold</option>
-                    <option>Luxury</option>
-                    <option>Dark Humor</option>
-                    <option>Shocking</option>
-                    <option>Motivational</option>
-                    <option>Educational</option>
-                </select>
-                {errors.tone && <p className="error">{errors.tone}</p>}
+ 
+    if (showResults && hooks.length > 0) {
+      setIsExiting(true);
+      window.setTimeout(requestHooks, EXIT_DURATION_MS);
+    } else {
+      requestHooks();
+    }
+  };
 
-                <input type="text" list="languages" placeholder="Select language" value={language}
-                    onChange={(e) => {
-                        setLanguage(e.target.value);
-                        setErrors({ ...errors, language: "" });
-                        reset();
-                    }} />
-                <datalist id="languages">
-                    <option value="English" />
-                    <option value="Tamil" />
-                    <option value="Hindi" />
-                    <option value="Telugu" />
-                    <option value="Malayalam" />
-                    <option value="Kannada" />
-                    <option value="Spanish" />
-                    <option value="French" />
-                    <option value="German" />
-                    <option value="Japanese" />
-                </datalist>
-                {errors.language && <p className="error">{errors.language}</p>}
+  const isSplit = hasGeneratedOnce;
 
-                <button onClick={generateHooks} disabled={loading}>
-                    {loading ? <div className="loading">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </div> : generated ? "Generate Again" : "Generate Hooks"}
-                </button>
+  return (
+    <div className="shell">
+      <main className={`layout ${isSplit ? "layout--split" : "layout--centered"}`}>
+        <section className={`panel panel--form ${isSplit ? "panel--form-compact" : ""}`}>
+          <div className="brand">
+            <span className="brand__mark">ScrollStop</span>
+            <p className="brand__subtitle">Generate viral hooks with AI</p>
+          </div>
+
+          <div className="field">
+            <textarea
+              className={`input input--textarea ${isSplit ? "input--textarea-compact" : ""}`}
+              placeholder="Describe your content..."
+              value={description}
+              onChange={handleFieldChange(setDescription, "description")}
+            />
+            {errors.description && <p className="field__error">{errors.description}</p>}
+          </div>
+
+          <div className="field-row">
+            <div className="field">
+              <select
+                className="input"
+                value={platform}
+                onChange={handleFieldChange(setPlatform, "platform")}
+              >
+                <option value="">Select platform</option>
+                {PLATFORMS.map((p) => (
+                  <option key={p}>{p}</option>
+                ))}
+              </select>
+              {errors.platform && <p className="field__error">{errors.platform}</p>}
             </div>
 
-            {generated && (
-                <div className="right-panel">
-                    <div className="results">
-                        {hooks.map((hook, index) => (
-                            <p key={index} className="hook" style={{ animationDelay: `${index * 150}ms` }}>• {hook}</p>
-                        ))}
-                    </div>
-                </div>)}
-        </div>
-    );
+            <div className="field">
+              <select
+                className="input"
+                value={tone}
+                onChange={handleFieldChange(setTone, "tone")}
+              >
+                <option value="">Select tone</option>
+                {TONES.map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </select>
+              {errors.tone && <p className="field__error">{errors.tone}</p>}
+            </div>
+          </div>
+
+          <div className="field">
+            <input
+              type="text"
+              list="languages"
+              className="input"
+              placeholder="Select language"
+              value={language}
+              onChange={handleFieldChange(setLanguage, "language")}
+            />
+            <datalist id="languages">
+              {LANGUAGES.map((l) => (
+                <option key={l} value={l} />
+              ))}
+            </datalist>
+            {errors.language && <p className="field__error">{errors.language}</p>}
+          </div>
+
+          <button className="btn" onClick={handleGenerate} disabled={loading}>
+            {loading ? (
+              <span className="loading" aria-label="Generating">
+                <span></span><span></span><span></span>
+              </span>
+            ) : hasGeneratedOnce ? (
+              "Generate again"
+            ) : (
+              "Generate hooks"
+            )}
+          </button>
+        </section>
+
+        {showResults && (
+          <section className={`panel panel--results ${isExiting ? "is-exiting" : ""}`}>
+            <div className="results" key={resultsBatch}>
+              {hooks.map((hook, index) => (
+                <p
+                  key={index}
+                  className="hook"
+                  style={{ animationDelay: `${index * 150}ms` }}
+                >
+                  <span className="hook__index">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="hook__text">{hook}</span>
+                </p>
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
+    </div>
+  );
 }
+
 export default App;
