@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.database.database import get_db
 from app.models.user import User
 from sqlalchemy import select
+from app.auth.jwt import create_access_token
 
 
 router = APIRouter(
@@ -57,6 +58,19 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
             status_code=401,
             detail="Invalid email or password"
         )
+
+    access_token = create_access_token(
+        data={
+            "sub": existing_user.email
+        }
+    )
+
+    return{
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
+
+    
     
 
     
