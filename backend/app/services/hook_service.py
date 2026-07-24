@@ -4,6 +4,8 @@ from app.config import API_KEY
 
 client = genai.Client(api_key=API_KEY)
 
+from fastapi import HTTPException
+
 
 def generate_hook(description, platform, tone, language, previous_hooks=None):
 
@@ -32,15 +34,20 @@ description: {description}
         prompt += f"""
 
 Previous hooks:
-{chr(10).join(previous_hooks)}
+{"\n".join(previous_hooks)}
 
 Generate five completely different hooks.
 
 Do not repeat the wording, structure, or angle of any previous hook.
 """
-
-    response = client.models.generate_content(
+    try:
+        response = client.models.generate_content(
         model="gemini-3.1-flash-lite", contents=prompt
-    )
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=503,
+            detail="AI service is temporarily unavaildabe. please try again"
+        )
 
     return response.text.split("\n")

@@ -2,8 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.models.hook import HookRequest
 from app.services.hook_service import generate_hook
+from app.routers import auth
+from app.database.database import Base, engine
+from app.models.user import User 
 
 app = FastAPI()
+Base.metadata.create_all(bind=engine)
+app.include_router(auth.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,4 +35,6 @@ def generate(request: HookRequest):
     return {
         "hooks": hook
         }
+
+
 
