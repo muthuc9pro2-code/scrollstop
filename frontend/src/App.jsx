@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import axios from "axios";
 import "./index.css";
 
@@ -16,7 +16,10 @@ const LANGUAGES = [
 ];
 
 const API_URL = "http://127.0.0.1:8000/generate";
-
+const LOGIN_URL = "http://127.0.0.1.8000/login";
+const ME_URL = "http://127.0.0.1.8000/me";
+const SIGNUP_URL = "http://127.0.0.1.8000/signup"
+ 
 
 const EXIT_DURATION_MS = 260;
 
@@ -43,6 +46,67 @@ function App() {
 
 
   const previousHooksRef = useRef(null);
+
+  const [userame, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [user, setUser] = useState(null);
+
+  const signup = async() => {
+    await axios.post(
+      SIGNUP_URL,
+      {
+        username,
+        email, 
+        password
+      }
+    )
+  }
+
+  const login = async() => {
+    try{
+      const response = await axios.post(
+        LOGIN_URL,
+        {
+          email,
+          password
+        }
+      );
+      localStorage.setItem(
+        "access_token",
+        response.data.access_token
+      );
+      await getMe();
+    } catch(err) {
+      console.error(err);
+    }
+  };
+
+  const getMe = async() => {
+    const token = localStorage.getItem("access_token");
+
+    const response = await axios.get(
+      ME_URL,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,  
+        },
+      }
+    )
+    setUser(response.data)
+  }
+
+  useEffect(() => {
+    const token = localStorage.getItem("access_token")
+    if (token) {
+      getMe();
+    }
+  }, [])
+
+  const logout = () => {
+    localStorage.removeItem("access_token");
+    setUser(null);
+  }
 
   const validate = () => {
     const next = {
@@ -92,8 +156,6 @@ function App() {
 
   const handleGenerate = () => {
     if (!validate()) return;
-
-   
     if (hooks.length > 0) {
       setIsExiting(true);
       window.setTimeout(requestHooks, EXIT_DURATION_MS);
@@ -180,6 +242,9 @@ function App() {
             ) : (
               "Generate hooks"
             )}
+          </button>
+          <button onClick={logout}>
+            Logout
           </button>
         </section>
 
