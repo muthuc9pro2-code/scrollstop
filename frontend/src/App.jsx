@@ -1,6 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import axios from "axios";
 import "./index.css";
+import TopBar from "./components/TopBar";
+import AuthModal from "./components/AuthModal";
+import Sidebar from "./components/Sidebar";
 
 const PLATFORMS = ["YouTube", "Instagram", "TikTok", "LinkedIn", "X"];
 
@@ -16,17 +19,16 @@ const LANGUAGES = [
 ];
 
 const API_URL = "http://127.0.0.1:8000/generate";
-const LOGIN_URL = "http://127.0.0.1.8000/login";
-const ME_URL = "http://127.0.0.1.8000/me";
-const SIGNUP_URL = "http://127.0.0.1.8000/signup"
- 
+const LOGIN_URL = "http://127.0.0.1:8000/auth/login";
+const ME_URL = "http://127.0.0.1:8000/auth/me";
+const SIGNUP_URL = "http://127.0.0.1:8000/auth/signingup";
 
 const EXIT_DURATION_MS = 260;
 
 const EMPTY_ERRORS = { description: "", platform: "", tone: "", language: "" };
 
 function App() {
-
+  
   const [description, setDescription] = useState("");
   const [platform, setPlatform] = useState("");
   const [tone, setTone] = useState("");
@@ -35,79 +37,67 @@ function App() {
 
  
   const [hooks, setHooks] = useState([]);
-  const [resultsBatch, setResultsBatch] = useState(0); 
+  const [resultsBatch, setResultsBatch] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
 
- 
+  
   const [hasGeneratedOnce, setHasGeneratedOnce] = useState(false);
- 
   const [hasFreshResults, setHasFreshResults] = useState(false);
-
 
   const previousHooksRef = useRef(null);
 
-  const [userame, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  
   const [user, setUser] = useState(null);
+  const [authMode, setAuthMode] = useState(null); 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const signup = async() => {
-    await axios.post(
-      SIGNUP_URL,
-      {
-        username,
-        email, 
-        password
-      }
-    )
-  }
-
-  const login = async() => {
-    try{
-      const response = await axios.post(
-        LOGIN_URL,
-        {
-          email,
-          password
-        }
-      );
-      localStorage.setItem(
-        "access_token",
-        response.data.access_token
-      );
-      await getMe();
-    } catch(err) {
-      console.error(err);
-    }
+  const signup = async ({ username, email, password }) => {
+    await axios.post(SIGNUP_URL, { username, email, password });
+    await login({ email, password });
   };
 
-  const getMe = async() => {
-    const token = localStorage.getItem("access_token");
 
-    const response = await axios.get(
-      ME_URL,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,  
-        },
-      }
-    )
-    setUser(response.data)
-  }
+  const login = async ({ email, password }) => {
+    const response = await axios.post(LOGIN_URL, { email, password });
+    localStorage.setItem("access_token", response.data.access_token);
+    await getMe();
+  };
+
+  const getMe = async () => {
+    const token = localStorage.getItem("access_token");
+    const response = await axios.get(ME_URL, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setUser(response.data);
+  };
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token")
+    const token = localStorage.getItem("access_token");
     if (token) {
-      getMe();
+      getMe().catch(() => localStorage.removeItem("access_token"));
     }
-  }, [])
+  }, []);
 
   const logout = () => {
     localStorage.removeItem("access_token");
     setUser(null);
-  }
+    setSidebarOpen(false);
+  };
 
+  const handleAuthSuccess = () => setAuthMode(null);
+
+  const handleSignupSubmit = async (payload) => {
+    await signup(payload);
+    handleAuthSuccess();
+  };
+
+  const handleLoginSubmit = async (payload) => {
+    await login(payload);
+    handleAuthSuccess();
+  };
+
+ 
   const validate = () => {
     const next = {
       description: description.trim() ? "" : "Description is required.",
@@ -121,7 +111,6 @@ function App() {
 
   const clearFieldError = (field) =>
     setErrors((prev) => (prev[field] ? { ...prev, [field]: "" } : prev));
-
 
   const handleFieldChange = (setter, field) => (event) => {
     setter(event.target.value);
@@ -168,6 +157,30 @@ function App() {
 
   return (
     <div className="shell">
+      <TopBar
+        user={user}
+        onOpenLogin={() => setAuthMode("login")}
+        onOpenSignup={() => setAuthMode("signup")}
+        onAvatarClick={() => setSidebarOpen((open) => !open)}
+      />
+
+      {authMode && (
+        <AuthModal
+          mode={authMode}
+          onClose={() => setAuthMode(null)}
+          onSwitchMode={(mode) => setAuthMode(mode)}
+          onSubmitLogin={handleLoginSubmit}
+          onSubmitSignup={handleSignupSubmit}
+        />
+      )}
+
+      <Sidebar
+        open={sidebarOpen}
+        user={user}
+        onClose={() => setSidebarOpen(false)}
+        onLogout={logout}
+      />
+
       <main className={`layout ${isSplit ? "layout--split" : "layout--centered"}`}>
         <section className={`panel panel--form ${isSplit ? "panel--form-compact" : ""}`}>
           <div className="brand">
@@ -242,9 +255,6 @@ function App() {
             ) : (
               "Generate hooks"
             )}
-          </button>
-          <button onClick={logout}>
-            Logout
           </button>
         </section>
 
