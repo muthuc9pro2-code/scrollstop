@@ -5,10 +5,12 @@ from app.services.hook_service import generate_hook
 from app.routers import auth
 from app.database.database import Base, engine
 from app.models.user import User 
+from app.routers import history
 
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
 app.include_router(auth.router)
+app.include_router(history.router)
 
 app.add_middleware(
     CORSMiddleware,

@@ -15,7 +15,7 @@ class History(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     description = Column(Text, nullable=False)
-    platfrom = Column(String(50), nullable=False)
+    platform = Column(String(50), nullable=False)
     tone = Column(String(50), nullable=False)
     language = Column(String(50), nullable=False)
     hooks = Column(Text, nullable=False)

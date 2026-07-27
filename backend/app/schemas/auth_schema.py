@@ -27,4 +27,4 @@ class HistoryCreate(BaseModel):
     platform : str
     tone : str
     language : str
-    hooks : str
+    hooks : list[str]

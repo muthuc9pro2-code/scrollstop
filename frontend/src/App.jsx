@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import axios from "axios";
 import "./index.css";
 import TopBar from "./components/TopBar";
@@ -21,42 +21,99 @@ const LANGUAGES = [
 const API_URL = "http://127.0.0.1:8000/generate";
 const LOGIN_URL = "http://127.0.0.1:8000/auth/login";
 const ME_URL = "http://127.0.0.1:8000/auth/me";
-const SIGNUP_URL = "http://127.0.0.1:8000/auth/signingup";
-
-const EXIT_DURATION_MS = 260;
+const SIGNUP_URL = "http://127.0.0.1:8000/auth/signup";
+const HISTORY_URL = "http://127.0.0.1:8000/history";
 
 const EMPTY_ERRORS = { description: "", platform: "", tone: "", language: "" };
 
+// The backend sometimes returns hooks as a real array (from /generate) and
+// sometimes as one multiline string (as stored in history). Every place
+// hooks enters state goes through this first, so batch.hooks.map(...) can
+// always assume a string[].
+const toHooksArray = (hooks) => {
+  if (Array.isArray(hooks)) return hooks;
+  if (typeof hooks === "string") {
+    return hooks
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+  }
+  return [];
+};
+
+// Recency for a history row: prefer a real timestamp field if the backend
+// returns one, otherwise fall back to its position in the array (the
+// common default for an unordered "SELECT * FROM history" — earlier index
+// assumed to mean earlier insertion).
+const recencyOf = (item, index) => {
+  const stamp = item.created_at ?? item.createdAt ?? item.timestamp;
+  return stamp ? new Date(stamp).getTime() : index;
+};
+
 function App() {
-  
+  // ---- generator form state ----
   const [description, setDescription] = useState("");
   const [platform, setPlatform] = useState("");
   const [tone, setTone] = useState("");
   const [language, setLanguage] = useState("");
   const [errors, setErrors] = useState(EMPTY_ERRORS);
 
- 
-  const [hooks, setHooks] = useState([]);
-  const [resultsBatch, setResultsBatch] = useState(0);
+  // ---- results state ----
+  // Each generate appends a new batch instead of replacing the old one, so
+  // previous results stay on screen and the panel scrolls to fit them all.
+  const [resultsBatches, setResultsBatches] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [isExiting, setIsExiting] = useState(false);
+  const nextBatchId = useRef(0);
+  const resultsRef = useRef(null);
 
-  
+  // ---- layout state ----
   const [hasGeneratedOnce, setHasGeneratedOnce] = useState(false);
   const [hasFreshResults, setHasFreshResults] = useState(false);
 
   const previousHooksRef = useRef(null);
 
-  
+  // ---- auth state ----
   const [user, setUser] = useState(null);
-  const [authMode, setAuthMode] = useState(null); 
+  const [authMode, setAuthMode] = useState(null); // null | "login" | "signup"
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // ---- history state ----
+  // Raw rows exactly as the backend returns them — one row per generate,
+  // possibly several rows sharing the same description (one per "Generate
+  // Again" click). The sidebar only ever shows a deduped view of this, but
+  // clicking an item needs every row for that description, so we keep the
+  // full list here rather than only the deduped one.
+  const [history, setHistory] = useState([]);
+
+  // Fetch history from the backend. Called after we confirm who the user
+  // is (mount-with-token, or right after login/signup) and again after
+  // every successful save, so the sidebar never needs a manual refresh.
+  const getHistory = useCallback(async () => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+    try {
+      const response = await axios.get(HISTORY_URL, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setHistory(response.data);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  const getMe = useCallback(async () => {
+    const token = localStorage.getItem("access_token");
+    const response = await axios.get(ME_URL, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setUser(response.data);
+    await getHistory();
+  }, [getHistory]);
 
   const signup = async ({ username, email, password }) => {
     await axios.post(SIGNUP_URL, { username, email, password });
     await login({ email, password });
   };
-
 
   const login = async ({ email, password }) => {
     const response = await axios.post(LOGIN_URL, { email, password });
@@ -64,24 +121,21 @@ function App() {
     await getMe();
   };
 
-  const getMe = async () => {
-    const token = localStorage.getItem("access_token");
-    const response = await axios.get(ME_URL, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setUser(response.data);
-  };
-
+  // Runs once on mount only — getMe() itself (called here, and again after
+  // login/signup) is what keeps the user + history in sync, so there is no
+  // separate history-fetch effect duplicating this call.
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (token) {
       getMe().catch(() => localStorage.removeItem("access_token"));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const logout = () => {
     localStorage.removeItem("access_token");
     setUser(null);
+    setHistory([]);
     setSidebarOpen(false);
   };
 
@@ -97,7 +151,7 @@ function App() {
     handleAuthSuccess();
   };
 
- 
+  // ---- generator logic ----
   const validate = () => {
     const next = {
       description: description.trim() ? "" : "Description is required.",
@@ -130,30 +184,115 @@ function App() {
         language,
         previous_hooks: previousHooksRef.current,
       });
-      previousHooksRef.current = response.data.hooks;
-      setHooks(response.data.hooks);
-      setResultsBatch((n) => n + 1);
+
+      const hooks = toHooksArray(response.data.hooks);
+      previousHooksRef.current = hooks;
+
+      const token = localStorage.getItem("access_token");
+      if (token) {
+        await axios.post(
+          HISTORY_URL,
+          { description, platform, tone, language, hooks },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        // Real-time sync: refresh the sidebar immediately after saving,
+        // no page reload needed.
+        await getHistory();
+      }
+
+      setResultsBatches((prev) => [
+        ...prev,
+        { id: nextBatchId.current++, hooks },
+      ]);
       setHasGeneratedOnce(true);
       setHasFreshResults(true);
+      // Wait a tick so the new batch's DOM has been added before measuring
+      // scrollHeight, then scroll down to reveal it.
+      window.requestAnimationFrame(() => {
+        resultsRef.current?.scrollTo({
+          top: resultsRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      });
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
-      setIsExiting(false);
     }
-  }, [description, platform, tone, language]);
+  }, [description, platform, tone, language, getHistory]);
 
   const handleGenerate = () => {
     if (!validate()) return;
-    if (hooks.length > 0) {
-      setIsExiting(true);
-      window.setTimeout(requestHooks, EXIT_DURATION_MS);
-    } else {
-      requestHooks();
-    }
+    requestHooks();
   };
 
+  // Restoring a history entry means: find every raw row that shares this
+  // description, turn each one into its own batch (oldest first, so the
+  // panel reads exactly like the person had clicked "Generate Again" that
+  // many times), and restore the form fields from the newest matching row.
+  const handleSelectHistory = (description) => {
+    const matches = history
+      .map((row, index) => ({ ...row, _recency: recencyOf(row, index) }))
+      .filter((row) => row.description === description)
+      .sort((a, b) => a._recency - b._recency); // oldest -> newest
+
+    if (matches.length === 0) return;
+
+    const newest = matches[matches.length - 1];
+    setDescription(newest.description ?? "");
+    setPlatform(newest.platform ?? "");
+    setTone(newest.tone ?? "");
+    setLanguage(newest.language ?? "");
+    setErrors(EMPTY_ERRORS);
+
+    const batches = matches.map((row) => ({
+      id: nextBatchId.current++,
+      hooks: toHooksArray(row.hooks),
+    }));
+
+    previousHooksRef.current = batches[batches.length - 1].hooks;
+    setResultsBatches(batches);
+    setHasGeneratedOnce(true);
+    setHasFreshResults(true);
+    setSidebarOpen(false);
+  };
+
+  // Sidebar display only: one row per unique description, showing whichever
+  // occurrence is most recent. The click handler above re-derives the full
+  // set of matching rows from raw `history` — this deduped list is never
+  // used for restoring batches, only for what the sidebar lists.
+  const dedupedHistory = useMemo(() => {
+    const latestByDescription = new Map();
+    history.forEach((item, index) => {
+      const key = item.description;
+      const recency = recencyOf(item, index);
+      const existing = latestByDescription.get(key);
+      if (!existing || recency >= existing._recency) {
+        latestByDescription.set(key, { ...item, _recency: recency });
+      }
+    });
+
+    return Array.from(latestByDescription.values()).sort(
+      (a, b) => b._recency - a._recency
+    );
+  }, [history]);
+
   const isSplit = hasGeneratedOnce;
+  const isSingleBatch = resultsBatches.length <= 1;
+
+  // Continuous "01, 02, ..." numbering across every batch, while each
+  // batch's own items still stagger in from 0ms — since already-mounted
+  // <p> elements keep their key, their fade-in animation never replays.
+  let runningIndex = 0;
+  const renderedBatches = resultsBatches.map((batch) => ({
+    id: batch.id,
+    items: batch.hooks.map((hook, i) => ({
+      key: `${batch.id}-${i}`,
+      label: String((runningIndex += 1)).padStart(2, "0"),
+      text: hook,
+      delay: i * 150,
+    })),
+  }));
 
   return (
     <div className="shell">
@@ -179,6 +318,8 @@ function App() {
         user={user}
         onClose={() => setSidebarOpen(false)}
         onLogout={logout}
+        history={dedupedHistory}
+        onSelectHistory={handleSelectHistory}
       />
 
       <main className={`layout ${isSplit ? "layout--split" : "layout--centered"}`}>
@@ -259,17 +400,24 @@ function App() {
         </section>
 
         {hasGeneratedOnce && (
-          <section className={`panel panel--results ${isExiting ? "is-exiting" : ""}`}>
-            <div className="results" key={resultsBatch}>
-              {hooks.map((hook, index) => (
-                <p
-                  key={index}
-                  className="hook"
-                  style={{ animationDelay: `${index * 150}ms` }}
-                >
-                  <span className="hook__index">{String(index + 1).padStart(2, "0")}</span>
-                  <span className="hook__text">{hook}</span>
-                </p>
+          <section className="panel panel--results">
+            <div
+              className={`results ${isSingleBatch ? "results--single" : "results--multi"}`}
+              ref={resultsRef}
+            >
+              {renderedBatches.map((batch) => (
+                <div key={batch.id} className="results-batch">
+                  {batch.items.map((item) => (
+                    <p
+                      key={item.key}
+                      className="hook"
+                      style={{ animationDelay: `${item.delay}ms` }}
+                    >
+                      <span className="hook__index">{item.label}</span>
+                      <span className="hook__text">{item.text}</span>
+                    </p>
+                  ))}
+                </div>
               ))}
             </div>
           </section>
