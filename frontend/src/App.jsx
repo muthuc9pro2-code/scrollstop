@@ -18,11 +18,11 @@ const LANGUAGES = [
   "Kannada", "Spanish", "French", "German", "Japanese",
 ];
 
-const API_URL = "http://127.0.0.1:8000/generate";
-const LOGIN_URL = "http://127.0.0.1:8000/auth/login";
-const ME_URL = "http://127.0.0.1:8000/auth/me";
-const SIGNUP_URL = "http://127.0.0.1:8000/auth/signingup";
-const HISTORY_URL = "http://127.0.0.1:8000/history";
+const API_URL = "http://15.207.100.103:8000/generate";
+const LOGIN_URL = "http://15.207.100.103:8000/auth/login";
+const ME_URL = "http://15.207.100.103:8000/auth/me";
+const SIGNUP_URL = "http://15.207.100.103:8000/auth/signingup";
+const HISTORY_URL = "http://15.207.100.103:8000/history";
 
 const EMPTY_ERRORS = { description: "", platform: "", tone: "", language: "" };
 
