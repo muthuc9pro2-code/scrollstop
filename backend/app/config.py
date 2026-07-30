@@ -9,6 +9,6 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 ALGORITHM = "HS256"
 
-DATABASE_URL = os.getenv("DB")
+DATABASE_URL = os.getenv("DATABASE")
 
 ALLOW_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",")
