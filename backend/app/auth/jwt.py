@@ -10,7 +10,7 @@ from app.models.user import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
-def create_access_token(data: dict):
+def create_access_token(data:dict):
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(minutes=30)
     to_encode.update({"exp": expire})
