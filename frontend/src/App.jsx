@@ -5,6 +5,8 @@ import TopBar from "./components/TopBar";
 import AuthModal from "./components/AuthModal";
 import Sidebar from "./components/Sidebar";
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const PLATFORMS = ["YouTube", "Instagram", "TikTok", "LinkedIn", "X"];
 
 const TONES = [
@@ -18,11 +20,11 @@ const LANGUAGES = [
   "Kannada", "Spanish", "French", "German", "Japanese",
 ];
 
-const API_URL = "http://15.207.100.103:8000/generate";
-const LOGIN_URL = "http://15.207.100.103:8000/auth/login";
-const ME_URL = "http://15.207.100.103:8000/auth/me";
-const SIGNUP_URL = "http://15.207.100.103:8000/auth/signingup";
-const HISTORY_URL = "http://15.207.100.103:8000/history";
+const API_URL = `${BASE_URL}/generate`;
+const LOGIN_URL = `${BASE_URL}/auth/login`;
+const ME_URL = `${BASE_URL}/auth/me`;
+const SIGNUP_URL = `${BASE_URL}/auth/signingup`;
+const HISTORY_URL = `${BASE_URL}/history`;
 
 const EMPTY_ERRORS = { description: "", platform: "", tone: "", language: "" };
 

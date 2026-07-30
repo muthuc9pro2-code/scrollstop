@@ -4,8 +4,9 @@ from app.schemas.auth_schema import HookRequest
 from app.services.hook_service import generate_hook
 from app.routers import auth
 from app.database.database import Base, engine
-from app.models.user import User 
+from app.config import ALLOW_ORIGINS 
 from app.routers import history
+
 
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
@@ -14,7 +15,7 @@ app.include_router(history.router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://15.207.100.103:5173","http://scrolltop.in:5173"],
+    allow_origins=ALLOW_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]

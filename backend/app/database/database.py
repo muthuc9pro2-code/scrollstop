@@ -1,7 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
-
-DATABASE_URL = "mysql+pymysql://root:996232@mysql-db:3306/scrollstop"
+from app.config import DATABASE_URL
 
 engine = create_engine(DATABASE_URL)
 
