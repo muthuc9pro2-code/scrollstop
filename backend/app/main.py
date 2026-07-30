@@ -14,7 +14,7 @@ app.include_router(history.router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://15.207.100.103:5173"],
+    allow_origins=["http://15.207.100.103:5173","http://scrolltop.in:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
