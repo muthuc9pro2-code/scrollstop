@@ -33,22 +33,24 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
-  overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
 
 /* ---------------------------------------------
    Shell + Layout
+   No longer viewport-fixed / internally scrollable — the whole page
+   flows and scrolls normally now, topbar included.
 --------------------------------------------- */
 .shell {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
+  flex-direction: column;
 }
 
 .layout {
   width: 100%;
-  height: 100%;
+  flex: 1;
   display: flex;
   padding: 3rem;
   gap: 3rem;
@@ -233,6 +235,8 @@ select.input {
 
 /* ---------------------------------------------
    Results panel
+   No fixed height / no internal scrollbar anymore — it grows with its
+   content and the page itself scrolls, same as everything else.
 --------------------------------------------- */
 .panel--results {
   flex: 1;
@@ -249,36 +253,19 @@ select.input {
 }
 
 .results {
-  height: 100%;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 1.75rem;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
-  transition: justify-content 0.3s var(--ease);
 }
 
-.results::-webkit-scrollbar {
-  width: 6px;
-}
-
-.results::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: 999px;
-}
-
-/* Only the first batch, before "Generate again" has ever run: big text,
-   spread evenly to fill the fixed box. */
+/* Only the first batch, before "Generate again" has ever run: big text. */
 .results--single {
-  justify-content: space-evenly;
+  justify-content: flex-start;
 }
 
-/* Once a second batch lands, everything shrinks so the whole growing list
-   can flow and scroll inside the same fixed box. */
 .results--multi {
   justify-content: flex-start;
 }
@@ -348,16 +335,17 @@ select.input {
 
 /* ---------------------------------------------
    Top bar (avatar + auth links)
+   No longer position:fixed — it's a normal row at the top of the page
+   now, so it scrolls away with the rest of the content instead of
+   staying pinned (which was overlapping content on mobile).
 --------------------------------------------- */
 .topbar {
-  position: fixed;
-  top: 1.5rem;
-  right: 1.75rem;
-  z-index: 50;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 1.1rem;
+  padding: 1.5rem 1.75rem 0;
 }
 
 .avatar {
@@ -372,6 +360,7 @@ select.input {
   color: var(--text-muted);
   cursor: pointer;
   transition: border-color 0.2s var(--ease), transform 0.2s var(--ease);
+  flex-shrink: 0;
 }
 
 .avatar:hover {
@@ -410,6 +399,7 @@ select.input {
   align-items: center;
   gap: 0.4rem;
   font-size: 0.85rem;
+  white-space: nowrap;
 }
 
 .topbar__divider {
@@ -433,6 +423,8 @@ select.input {
 
 /* ---------------------------------------------
    Auth modal
+   Stays position:fixed — this is an intentional overlay/dialog, not the
+   page-scroll issue being fixed above.
 --------------------------------------------- */
 .modal-backdrop {
   position: fixed;
@@ -536,6 +528,8 @@ select.input {
 
 /* ---------------------------------------------
    Sidebar
+   Stays position:fixed — this is an intentional slide-in drawer overlay,
+   not the page-scroll issue being fixed above.
 --------------------------------------------- */
 .sidebar-overlay {
   position: fixed;
@@ -684,15 +678,10 @@ select.input {
    Responsive
 --------------------------------------------- */
 @media (max-width: 900px) {
-  body {
-    overflow: auto;
-  }
-
   .layout,
   .layout--split {
     flex-direction: column;
     align-items: stretch;
-    height: auto;
     padding: 1.75rem;
     gap: 1.75rem;
   }
@@ -706,7 +695,10 @@ select.input {
 
   .panel--results {
     max-width: 100%;
-    max-height: 60vh;
+  }
+
+  .topbar {
+    padding: 1.25rem 1.25rem 0;
   }
 }
 

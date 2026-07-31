@@ -211,9 +211,9 @@ function App() {
       // Wait a tick so the new batch's DOM has been added before measuring
       // scrollHeight, then scroll down to reveal it.
       window.requestAnimationFrame(() => {
-        resultsRef.current?.scrollTo({
-          top: resultsRef.current.scrollHeight,
+        resultsRef.current?.scrollIntoView({
           behavior: "smooth",
+          block: "end",
         });
       });
     } catch (err) {
